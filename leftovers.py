@@ -2,8 +2,12 @@ from pprint import pprint
 from environs import Env
 import requests
 
+from utils import get_product
+
 env = Env()
 env.read_env()
+
+api_key = env('API_KEY')
 
 url = 'https://api.kontur.ru/market/v1/shops'
 
@@ -27,6 +31,9 @@ leftovers_url = 'https://api.kontur.ru/market/v1/shops/{}/product-rests'.format(
 response = requests.get(leftovers_url, headers=header)
 response.raise_for_status()
 
-products = response.json()['items']
+products_leftovers = response.json()['items']
+pprint(products_leftovers[:2])
 
-pprint(products[:20])
+for product_leftover in products_leftovers[:5]:
+    product = get_product(shop_id, product_leftover['productId'], api_key)
+    print(f'Наименование: {product["name"]}, Остаток: {product_leftover["rest"]}, Ед. изм: {product["unit"]}')
