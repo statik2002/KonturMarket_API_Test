@@ -18,9 +18,15 @@ shops = response.json()
 
 first_shop = shops['items'][0]
 
-#pprint(first_shop)
+shop_id = first_shop['id']
+shop_name = first_shop["name"]
+shop_organizationId = first_shop["organizationId"]
+shop_address = first_shop["address"]
 
-print(f'id магазина = {first_shop["id"]}')
-print(f'Название = {first_shop["name"]}')
-print(f'Id организации = {first_shop["organizationId"]}')
-print(f'Адрес организаци = {first_shop["address"]}')
+leftovers_url = 'https://api.kontur.ru/market/v1/shops/{}/product-rests'.format(shop_id)
+response = requests.get(leftovers_url, headers=header)
+response.raise_for_status()
+
+products = response.json()['items']
+
+pprint(products[:20])
