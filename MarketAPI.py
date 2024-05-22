@@ -1,10 +1,31 @@
 import requests
 
 
-class Shop:
+class Market:
+
+    def __init__(self, api_key: str) -> None:
+        self._api_key = api_key
+
+    def get_shops(self) -> dict:
+        url = 'https://api.kontur.ru/market/v1/shops'
+
+        header = {
+            f'x-kontur-apikey': self._api_key
+        }
+        response = requests.get(url, headers=header)
+        response.raise_for_status()
+
+        return response.json()
+
+    def __str__(self) -> str:
+        return f'{self._api_key}'
+
+
+class Shop(Market):
     shops = []
 
-    def __init__(self, shop_id: str, organization_id: str, name: str, address: str, is_paid: bool) -> None:
+    def __init__(self, api_key: str, shop_id: str, organization_id: str, name: str, address: str, is_paid: bool) -> None:
+        super().__init__(api_key)
         self.shop_id = shop_id
         self.organization_id = organization_id
         self.name = name
@@ -22,15 +43,32 @@ class Shop:
             shop_str = shop_str + shop.__str__()
         return shop_str
 
+    def get_leftover(self) -> dict:
+        url = f'https://api.kontur.ru/market/v1/shops/{self.shop_id}/product-rests'
+        header = {
+            f'x-kontur-apikey': self._api_key
+        }
+        response = requests.get(url, headers=header)
+        response.raise_for_status()
 
-class Market:
+        return response.json()
 
-    def __init__(self, api_key: str) -> None:
-        self._api_key = api_key
 
-    def get_shops(self) -> dict:
-        url = 'https://api.kontur.ru/market/v1/shops'
+class Product(Market):
+    products = []
 
+    def __init__(self, api_key: str, shop_id: str, product_id: str, rest: float) -> None:
+        super().__init__(api_key)
+        self.shop_id = shop_id
+        self.product_id = product_id
+        self.rest = rest
+        Product.products.append(self)
+
+    def __str__(self) -> str:
+        return f'{self.product_id}, {self.rest}, {self.shop_id}'
+
+    def get_product_info(self) -> dict:
+        url = f'https://api.kontur.ru/market/v1/shops/{self.shop_id}/products/{self.product_id}'
         header = {
             f'x-kontur-apikey': self._api_key
         }
