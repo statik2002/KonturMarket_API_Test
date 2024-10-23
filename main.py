@@ -15,23 +15,22 @@ def main():
     # Получаем список магазинов
     market.get_shops()
 
-    # Выводим первый магазин
-    first_shop = Shop.first()
-    print(first_shop)
-    # выводим каталог первого магазина
-    pprint(first_shop.fetch_catalog())
+    first_shop = market.get_first_shop()
+    print(first_shop.__dict__)
+    #print(first_shop.__dict__)
+    first_shop.fetch_catalog(api_key)
 
-    #leftovers = Shop.shops[0].get_leftover()
-    #print(leftovers.get('currentDate'))
-    #for product in leftovers.get('items'):
-    #    Product(api_key, Shop.shops[0].shop_id, product.get('productId'), product.get('rest'))
+    first_shop.get_products(api_key)
 
-    #for product in Product.products:
+    first_shop.get_rest(api_key)
+
+    # for product in first_shop.get_positive_rest():
     #    print(product)
 
-    #products_info = Product.products[0].get_product_info()
-    #print(products_info)
+    cheques = first_shop.get_cheque_at_period(api_key, '2024-10-23', '2024-10-23')
 
+    for cheque in cheques:
+        print(cheque)
 
 
 if __name__ == '__main__':
