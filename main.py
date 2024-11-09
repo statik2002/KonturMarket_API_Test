@@ -9,28 +9,41 @@ def main():
     env.read_env()
     api_key = env.str('API_KEY')
 
-    # Созадаём экземпляр класса Маркет API
-    market = Market(api_key)
+    # Создаём экземпляр класса Маркет API
+    market = Market()
+
+    # Создаем свойство класса с ключом
+    Market.api_key = api_key
 
     # Получаем список магазинов
     market.get_shops()
 
+    # берем первый магазин
     first_shop = market.get_first_shop()
-    print(first_shop.__dict__)
-    #print(first_shop.__dict__)
-    first_shop.fetch_catalog(api_key)
 
-    first_shop.get_products(api_key)
+    # подгружаем каталог у выбранного магазина
+    #first_shop.fetch_catalog()
+    #for catalog in first_shop.catalog:
+    #    print(catalog)
 
-    first_shop.get_rest(api_key)
+    # Подгружаем все товары
+    #first_shop.get_products()
 
-    # for product in first_shop.get_positive_rest():
+    # Подгружаем все остатки
+    #first_shop.get_rest()
+
+    #for product in first_shop.get_positive_rest():
     #    print(product)
 
-    cheques = first_shop.get_cheque_at_period(api_key, '2024-10-23', '2024-10-23')
+    cheques = first_shop.get_cheque_at_period('2024-11-09', '2024-11-09')
 
     for cheque in cheques:
-        print(cheque)
+        print(cheque.print_receipt())
+        for line in cheque.lines:
+            product = first_shop.get_product_by_id(line.product_id)
+            print(
+                f'{product.get("name")}, {line.sell_price_per_unit} Руб. x {line.count} - {line.discount_total_sum} Руб = {line.sell_price_per_unit * line.count - line.discount_total_sum} Руб'
+            )
 
 
 if __name__ == '__main__':

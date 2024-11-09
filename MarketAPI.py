@@ -1,5 +1,4 @@
 import requests
-from typing import List
 from datetime import datetime
 
 
@@ -35,30 +34,35 @@ UNIT = {
 
 
 class Market:
-    
-    api_key: str = ''
-    __shops = []
-    
-    def __init__(self, api_key: str) -> None:
-        """
-        Initial
-        :param api_key: Key from Market API
-        """
-        self.api_key = api_key
 
-    @classmethod
-    def get_api_key(cls) -> str:
-        return cls.api_key
+    __shops = []
+    __api_key = ''
+
+    @property
+    def api_key(self) -> str:
+        if not hasattr(self, '__api_key'):
+            raise Exception('Property api_key not defined!')
+
+        return str(self.__api_key)
+
+    @api_key.setter
+    def api_key(self, key):
+        if not key:
+            raise Exception('API key is empty')
+        self.__api_key = key
 
     def get_shops(self) -> None:
         """
         Get all shops and save class property __shops
         :return: None
         """
+        if not self.__class__.api_key:
+            raise Exception('API Key is empty')
+
         url = 'https://api.kontur.ru/market/v1/shops'
 
         header = {
-            f'x-kontur-apikey': self.api_key
+            f'x-kontur-apikey': self.__class__.api_key
         }
         response = requests.get(url, headers=header)
         response.raise_for_status()
@@ -99,7 +103,7 @@ class Market:
         return self.__shops[0]
 
 
-class Shop:
+class Shop(Market):
 
     catalog = []
     products = []
@@ -114,10 +118,14 @@ class Shop:
     def __str__(self) -> str:
         return f'{self.shop_id}, {self.organization_id}, {self.name}, {self.address}, {self.is_paid}'
 
-    def fetch_catalog(self, api_key: str) -> None:
+    def fetch_catalog(self) -> None:
+        """
+        Fetch shop catalog and save in self.catalog list
+        :return:
+        """
         url = f'https://api.kontur.ru/market/v1/shops/{self.shop_id}/product-groups'
         header = {
-            f'x-kontur-apikey': api_key
+            f'x-kontur-apikey': self.__class__.api_key
         }
         response = requests.get(url, headers=header)
         response.raise_for_status()
@@ -131,10 +139,14 @@ class Shop:
                 )
             )
 
-    def get_products(self, api_key: str) -> None:
+    def get_products(self) -> None:
+        """
+        Fetch all products and save in self.products list
+        :return:
+        """
         url = f'https://api.kontur.ru/market/v1/shops/{self.shop_id}/products'
         header = {
-            f'x-kontur-apikey': api_key
+            f'x-kontur-apikey': self.__class__.api_key
         }
         response = requests.get(url, headers=header)
         response.raise_for_status()
@@ -150,10 +162,24 @@ class Shop:
                 )
             )
 
-    def get_rest(self, api_key: str) -> None:
+    def get_product_by_id(self, product_id: str) -> dict:
+        url = f'https://api.kontur.ru/market/v1/shops/{self.shop_id}/products/{product_id}'
+        header = {
+            f'x-kontur-apikey': self.__class__.api_key
+        }
+        response = requests.get(url, headers=header)
+        response.raise_for_status()
+
+        return response.json()
+
+    def get_rest(self) -> None:
+        """
+        Fetch rest and save at Product.rest in products list
+        :return: None
+        """
         url = f'https://api.kontur.ru/market/v1/shops/{self.shop_id}/product-rests'
         header = {
-            f'x-kontur-apikey': api_key
+            f'x-kontur-apikey': self.__class__.api_key
         }
         response = requests.get(url, headers=header)
         response.raise_for_status()
@@ -165,11 +191,6 @@ class Shop:
             if shop_product_index:
                 self.products[shop_product_index].rest = float(product.get('rest'))
 
-            #else:
-                #raise Exception(f'Product {product.get("name")}, {product.get("id")} not found!')
-            #    print(f'Error. Product {product.get("name")}, {product.get("id")} not found!')
-            #    continue
-
     def get_positive_rest(self) -> list['Product']:
         """
         Return list of Product objects with rest greater zero
@@ -177,10 +198,16 @@ class Shop:
         """
         return list(filter(lambda product: product.rest > 0, self.products))
 
-    def get_cheque_at_period(self, api_key: str, date_from: str, date_to: str) -> list:
+    def get_cheque_at_period(self, date_from: str, date_to: str) -> list:
+        """
+        Fetch all cheques at period
+        :param date_from: start date
+        :param date_to: end date
+        :return: list of cheques
+        """
         url = f'https://api.kontur.ru/market/v1/shops/{self.shop_id}/cheques'
         header = {
-            f'x-kontur-apikey': api_key
+            f'x-kontur-apikey': self.__class__.api_key
         }
         params = {
             'dateFrom': date_from,
@@ -191,7 +218,37 @@ class Shop:
 
         cheques = []
 
+        # print(response.json().get('items'))
+
         for cheque in response.json().get('items'):
+            lines = []
+            for line in cheque.get('lines'):
+                lines.append(
+                    ReceiptLine(
+                        product_id=line.get('productId'),
+                        version_id=line.get('versionId'),
+                        product_code=line.get('productCode'),
+                        cheque_line_type=line.get('chequeLineType'),
+                        sell_price_per_unit=float(line.get('sellPricePerUnit').replace(',', '.')),
+                        count=float(line.get('count')),
+                        tax_system=line.get('taxSystem'),
+                        total_vat_value=line.get('totalVatValue'),
+                        vat_rate=line.get('vatRate'),
+                        discount_total_sum=float(line.get('discountTotalSum')),
+                        point_discount_sum=line.get('pointsDiscountSum'),
+                        calc_mode=line.get('calculationMode')
+                    )
+                )
+
+            payments = []
+            for payment in cheque.get('payments'):
+                payments.append(
+                    Payment(
+                        payment.get('type'),
+                        float(payment.get('value').replace(',', '.'))
+                    )
+                )
+
             cheques.append(
                 Receipt(
                     cheque.get('id'),
@@ -204,6 +261,8 @@ class Shop:
                     cheque.get('isRefund'),
                     cheque.get('totalPrice'),
                     cheque.get('priceCorrection'),
+                    lines,
+                    payments
                 )
             )
 
@@ -233,22 +292,21 @@ class Product:
     def __str__(self) -> str:
         return f'{self.id}, {self.name}, {self.group_id}, {self.rest}, {self.unit}'
 
-    def get_product_info(self, api_key: str) -> dict:
-        url = f'https://api.kontur.ru/market/v1/shops/{self.shop_id}/products/{self.id}'
-        header = {
-            f'x-kontur-apikey': api_key
-        }
-        response = requests.get(url, headers=header)
-        response.raise_for_status()
 
-        return response.json()
+class Payment:
+    def __init__(self, payment_type: str, value: float):
+        self.payment_type = payment_type
+        self.value = value
+
+    def __str__(self):
+        return f'Тип оплаты: {self.payment_type} - Сумма: {self.value} Руб.'
 
 
 class Receipt:
 
     def __init__(self, id: str, shop_id: str, number: str, cashbox_id: str, cash_register_id: str,
                  open_time: datetime, close_time: datetime, is_refund: bool, total_price: float,
-                 price_correction: float) -> None:
+                 price_correction: float, lines: list, payment_type: list) -> None:
         self.id = id
         self.shop_id = shop_id
         self.number = number
@@ -259,15 +317,29 @@ class Receipt:
         self.is_refund = is_refund
         self.total_price = total_price
         self.price_correction = price_correction
+        self.lines = lines
+        self.payment = payment_type
 
     def __str__(self) -> str:
         return f'{self.number}, {self.open_time}, {self.close_time}, Refund: {self.is_refund}, {self.total_price}, pr_cor: {self.price_correction}'
+
+    def print_receipt(self):
+        if self.is_refund:
+            operation = 'Возврат'
+        else:
+            operation = 'Продажа'
+        first_line = f'#{self.number} {self.open_time}-{self.close_time} {operation} на сумму: {self.total_price} Руб.'
+        second_line = ''
+        for payment in self.payment:
+            second_line += f'Тип оплаты: {payment.payment_type} - Сумма: {payment.value} Руб.'
+
+        return first_line + second_line
 
 
 class ReceiptLine:
     def __init__(self, product_id: str, version_id: str, product_code: str, cheque_line_type: str,
                  sell_price_per_unit: float, count: float, tax_system: str, total_vat_value: float, vat_rate: str,
-                 discount_total_sum: float, discount_percent: float, point_discount_sum: float,
+                 discount_total_sum: float, point_discount_sum: float,
                  calc_mode: str) -> None:
         self.product_id = product_id
         self.version_id = version_id
@@ -279,6 +351,9 @@ class ReceiptLine:
         self.total_vat_value = total_vat_value
         self.vat_rate = vat_rate
         self.discount_total_sum = discount_total_sum
-        self.discount_percent = discount_percent
         self.point_discount_sum = point_discount_sum
         self.calc_mode = calc_mode
+
+    def __str__(self):
+        return f'Product Id: {self.product_id}, Code: {self.product_code}, price: {self.sell_price_per_unit} x Count: {self.count} - Discount: {self.discount_total_sum} = {self.sell_price_per_unit * self.count - self.discount_total_sum}'
+
